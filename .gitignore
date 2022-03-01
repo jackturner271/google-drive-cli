@@ -1,0 +1,10 @@
+# Ignore all json files
+*.json
+
+# Ignore my vs workspace
+*.code-workspace
+
+# Ignore pycache folder
+__pycache__
+
+quickstart.py
