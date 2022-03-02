@@ -8,6 +8,9 @@ import google_auth
 import api_interaction
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
+import os
+from os.path import isfile, join, basename, normpath
+import magic
 
 SCOPES = ['https://www.googleapis.com/auth/drive']
 CLIENT_SECRET_FILE = "credentials.json"
@@ -108,12 +111,8 @@ def folder(args):
 def upload(args):
     try:
         if(args.mimetype == None):
-            # Try and guess the extension
-            print("Attempting to guess the mimetype...")
-            mime = mimetypes.guess_extension(args.filePath)
-            if(mime == None):
-                # If it cannot be guessed then raise error
-                raise MimeError
+            mimemagic = magic.Magic(mime=True)
+            mime = mimemagic.from_file(args.filePath) #Get the files mimetype
         else:
             mime = args.mimetype
         api = api_interaction.API(drive_service)
@@ -164,6 +163,54 @@ def trash(args):
     except HttpError as error:
         printHttpError(error)
         
+@subcommand([argument("folderPath", help="The folder to upload", action="store"),
+             argument("--folderId",help="The parent folder ID to store the uploaded files/folders", action="store", default="root"),
+             argument("--depth", help="Maximum depth to traverse", action="store", type=int)])
+def uploadfolder(args):
+    def traverse(api, path, root, depth, maxdepth):
+        print(f"Creating {path} folder...")
+        id = api.createFolder(basename(normpath(path)), root)
+        
+        if(maxdepth == None or depth < maxdepth): #If max depth is reached, do not upload anything or create new folders
+            print(depth)
+            print(maxdepth)
+            items = os.listdir(path)
+            
+            for item in items:
+                itempath = join(path, item)
+                if isfile(itempath):
+                    mimemagic = magic.Magic(mime=True)
+                    mime = mimemagic.from_file(itempath) #Get the files mimetype
+                    print(f"Attempting upload of {itempath}...")
+                    api.uploadFile(item, itempath, mime, id)
+                else:
+                    traverse(api, itempath, id, depth + 1, maxdepth)
+    
+    try:
+        api = api_interaction.API(drive_service)
+        traverse(api, args.folderPath, args.folderId, 0, args.depth)
+    except HttpError as error:
+        printHttpError(error)
+    
+@subcommand([argument("fileId",help="File ID to lock",action="store")])
+def lock(args):
+    try:
+        api = api_interaction.API(drive_service)
+        print("Attempting to lock file...")
+        api.lockFile(args.fileId)
+    except HttpError as error:
+        printHttpError(error)
+        
+@subcommand([argument("fileId",help="File ID to unlock",action="store")])
+def unlock(args):
+    try:
+        api = api_interaction.API(drive_service)
+        print("Attempting to unlock file...")
+        api.unlockFile(args.fileId)
+    except HttpError as error:
+        printHttpError(error)
+
+    
 if __name__ == "__main__":
     args = cli.parse_args()
     if args.subcommand is None:

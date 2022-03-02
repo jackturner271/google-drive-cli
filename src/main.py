@@ -14,7 +14,10 @@ drive_service = build('drive', 'v3', credentials=credentials)
 
 try:
     api = api_interaction.API(drive_service)
-    api.searchFile('photo.jpg', folder='root')
+    api.swapLock('13I4Sty4wxQimVA5-_iHQbOSs9FIXlhrt10YB0YKWBJo')
+    result = api.getLockState('13I4Sty4wxQimVA5-_iHQbOSs9FIXlhrt10YB0YKWBJo')
+    #print(result['contentRestrictions'][0]['readOnly'])
+    print(result)
 
 
 except HttpError as error:

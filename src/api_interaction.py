@@ -91,7 +91,7 @@ class API:
         """
 
         if(folder_id == None):
-            folder_id = self.service.files().get(file_id='root').execute()
+            folder_id = self.service.files().get(fileId='root').execute()
         file_metadata = {
             'name': name,
             'mimeType': 'application/vnd.google-apps.folder',
@@ -130,16 +130,16 @@ class API:
 
     def downloadFile(self, file_id) -> None:
         """Download a file from the drive. 
-        
+
         Args:
             file_id: The ID of the file to download. 
-            
+
         Raises:
             HttpError: An error occured in the request.
-        
+
         """
-        file = self.service.files().get(file_id=file_id).execute()
-        request = self.service.files().get_media(file_id=file_id)
+        file = self.service.files().get(fileId=file_id).execute()
+        request = self.service.files().get_media(fileId=file_id)
         fh = io.BytesIO()
         downloader = MediaIoBaseDownload(fh, request)
         done = False
@@ -153,36 +153,36 @@ class API:
 
     def moveFiles(self, file_id, folder_id='root') -> None:
         """Move a file in the drive by changing the parent.  
-        
+
         Args:
             file_id: The ID of the file to move. 
             folder_id: The ID of the new parent folder. Default is root.
-            
+
         """
-        file = self.service.files().get(file_id=file_id, fields='parents').execute()
+        file = self.service.files().get(fileId=file_id, fields='parents').execute()
         previous_parents = ",".join(file.get('parents'))
 
-        file = self.service.files().update(file_id=file_id, addParents=folder_id,
+        file = self.service.files().update(fileId=file_id, addParents=folder_id,
                                            removeParents=previous_parents, fields='id, parents').execute()
 
     def addShortcut(self, file_id, folder_id=None):
         """Create a shortcut to a file.
-        
+
         Args:
             file_id: The ID of the file to create a shortcut to.
             folder_id: The ID of the shortcuts parent folder. If no folder_id is provided, the shortcut will have the same parent as the original file. 
-        
+
         Returns:
             The ID of the shortcut.
-            
+
         Raises:
             HttpError: An error occured in the request.
-        
+
         """
         file = self.service.files().get(file_id=file_id, fields="id, parents").execute()
         if(folder_id == None):
             folder_id = file.get('parents')[0]
-        
+
         shortcut_metadata = {
             'Name': 'Shortcut to %s' % file.get('name'),
             'mimeType': 'application/vnd.google-apps.shortcut',
@@ -197,10 +197,34 @@ class API:
 
     def emptyTrash(self):
         """Permanently deletes all items marked as trash.
-        
+
         Raises:
             HttpError: An error occured in the request.
-        
+
         """
         self.service.files().emptyTrash().execute()
 
+    def lockFile(self, file_id, reason="No reason given"):
+        self.service.files().update(fileId=file_id, body={"contentRestrictions":
+                                                          [{"readOnly": "true", "reason": reason}]}).execute()
+
+    def unlockFile(self, file_id):
+        self.service.files().update(fileId=file_id, body={"contentRestrictions":
+                                                          [{"readOnly": "false"}]}).execute()
+        
+    def swapLock(self, file_id):
+        file = self.getLockState(file_id)
+        if 'contentRestrictions.readOnly' not in file:
+            self.lockFile(file_id)
+        else:
+            if file['contentRestrictions'][0]['readOnly'] == 'True':
+                #unlock
+                print("unlocking")
+                self.unlockFile(file_id)
+            else:
+                self.lockFile(file_id)
+                #lock
+                
+    def getLockState(self, file_id):
+        file = self.service.files().get(fileId = file_id, fields='id, contentRestrictions').execute()
+        return file
