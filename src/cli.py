@@ -133,6 +133,15 @@ def download(args):
         api.downloadFile(args.fileId)
     except HttpError as error:
         printHttpError(error)
+        
+@subcommand([argument("fileId", help="The id of the file to be exported.", action="store")])
+def export(args):
+    try:
+        api = api_interaction.API(drive_service)
+        print("Attempting export and download...")
+        api.exportFile(args.fileId)
+    except HttpError as error:
+        printHttpError(error)
 
 @subcommand([argument("fileId",help="ID of the file to move.", action="store"),
              argument("folderId",help="ID of the folder to move the file to.", action="store")])

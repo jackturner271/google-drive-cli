@@ -151,6 +151,28 @@ class API:
         with open(file.get('name'), 'wb') as f:
             shutil.copyfileobj(fh, f, length=10000)
 
+    def exportFile(self, file_id):
+        """Export a Google Workspace document and download it.
+        
+        Args:
+            file_id: The ID of the file to download.
+            
+        Raises:
+            HttpError: An error occured in the request.    
+        """
+        file = self.service.files().get(fileId=file_id).execute()
+        request = self.service.files().export_media(fileId=file_id, mimeType='application/pdf')
+        fh = io.BytesIO()
+        downloader = MediaIoBaseDownload(fh, request)
+        done = False
+        while done is False:
+            status, done = downloader.next_chunk()
+            print("Download %d%%." % int(status.progress() * 100))
+
+        fh.seek(0)
+        with open(file.get('name'), 'wb') as f:
+            shutil.copyfileobj(fh, f, length=10000)
+
     def moveFiles(self, file_id, folder_id='root') -> None:
         """Move a file in the drive by changing the parent.  
 
@@ -205,26 +227,27 @@ class API:
         self.service.files().emptyTrash().execute()
 
     def lockFile(self, file_id, reason="No reason given"):
+        """Lock a file and make it read-only.
+        
+        Args:
+            file_id: The ID of the file to lock.
+            reason: An optional reason as to why the file is being locked. 
+            
+        Raises:
+            HttpError: An error occured in the request.
+        """
         self.service.files().update(fileId=file_id, body={"contentRestrictions":
                                                           [{"readOnly": "true", "reason": reason}]}).execute()
 
     def unlockFile(self, file_id):
+        """Unlock a file.
+        
+        Args:
+            file_id: The ID of the file to unlock.
+            
+        Raises:
+            HttpError: An error occured in the request.
+        """
         self.service.files().update(fileId=file_id, body={"contentRestrictions":
                                                           [{"readOnly": "false"}]}).execute()
-        
-    def swapLock(self, file_id):
-        file = self.getLockState(file_id)
-        if 'contentRestrictions.readOnly' not in file:
-            self.lockFile(file_id)
-        else:
-            if file['contentRestrictions'][0]['readOnly'] == 'True':
-                #unlock
-                print("unlocking")
-                self.unlockFile(file_id)
-            else:
-                self.lockFile(file_id)
-                #lock
-                
-    def getLockState(self, file_id):
-        file = self.service.files().get(fileId = file_id, fields='id, contentRestrictions').execute()
-        return file
+    
