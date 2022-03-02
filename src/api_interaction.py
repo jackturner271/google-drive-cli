@@ -11,46 +11,113 @@ class API:
     def __init__(self, service):
         self.service = service
 
-    def listFiles(self, trash=False, excludeFolders=False, folderId='root'):
+    def listFiles(self, trash=False, excludeFolders=False, folder_id='root') -> list:
+        """List all files in a folder
+
+        Args:
+            trash: A flag to list items marked as trash.
+            excludeFolders: A flag to exclude folders from the list. 
+            folder_id: The ID of the root folder to list from. If None is given, all files in the entire drive, including nested files, are given. (Default is root)
+
+        Returns:
+            A list of found files with their ID, Name and a list of Parents.
+
+        Raises:
+            HttpError: An error occured in the request. 
+        """
+
         query = f"trashed = {trash}"
         if(excludeFolders):
             query += " AND mimeType != 'application/vnd.google-apps.folder'"
-        if(folderId != None):
-            query += f' AND "{folderId}" in parents'
+        if(folder_id != None):
+            query += f' AND "{folder_id}" in parents'
 
         results = self.service.files().list(
             q=query, fields="files(id, name, parents)").execute()
         return results.get('files', [])
 
-    def listAllFiles(self):  
-        results = self.service.files().list(fields="files(id, name, parents)").execute()
-        return results.get('files',[])
+    def listAllFiles(self) -> list:
+        """List all files in the entire drive, including nested items, folders and items marked as trash. 
 
-    def searchFile(self, name, trash=False, folder=None):
-        query = f"name contains '{name}'"
-        if(folder):
-            query += f" AND '{folder}' in parents"
-        if(trash == False):
-            query += f" AND trashed = False"
+        Returns:
+            A list of found files with their ID, Name and a list of Parents.
+
+        Raises:
+            HttpError: An error occured in the request. 
+        """
+
+        results = self.service.files().list(fields="files(id, name, parents)").execute()
+        return results.get('files', [])
+
+    def searchFile(self, name, trash=False, folder_id=None, match=False) -> list:
+        """Searches the drive for any files with names that contain the search term.
+
+        Args:
+            name: The term to search against. 
+            trash: A flag to search items marked as trash. 
+            folder_id: A folder ID to search within. If no value given, the entire drive is searched. 
+
+        Returns:
+            A list of found files with names that match the search term. Returned files include their ID, Name and a list of Parents.
+
+        Raises:
+            HttpError: An error occured in the request. 
+        """
+
+        if(match):
+            query = f"name = '{name}'"
+        else:
+            query = f"name contains '{name}'"
+        if(folder_id):
+            query += f" AND '{folder_id}' in parents"
+        query += f" AND trashed = {trash}"
         results = self.service.files().list(
             q=query, fields="nextPageToken, files(id, name, parents)").execute()
         items = results.get('files', [])
         return items
 
-    def createFolder(self, name, folder_id='root'):
+    def createFolder(self, name, folder_id='root') -> str:
+        """Create a new folder. 
+
+        Args:
+            name: The name given to the folder.
+            folder_id: The ID of the parent folder. By default, the new folder is created at the root. 
+
+        Returns:
+            The ID of the new folder. 
+
+        Raises:
+            HttpError: An error occured in the request. 
+        """
+
         if(folder_id == None):
-            folder_id = self.service.files().get(fileId='root').execute()
+            folder_id = self.service.files().get(file_id='root').execute()
         file_metadata = {
             'name': name,
             'mimeType': 'application/vnd.google-apps.folder',
             'parents': [folder_id]
         }
         file = self.service.files().create(body=file_metadata, fields='id').execute()
-        print('Folder ID: %s' % file.get('id'))
+        return file.get('id')
 
-    def uploadFile(self, folder_id, file_name, file_path, mime_type):
+    def uploadFile(self, name, file_path, mime_type, folder_id='root') -> str:
+        """Upload a file to the drive. 
+
+        Args:
+            name: The name of the new file. This does not have to match the name of the local file but should match the extension. 
+            file_path: The path of the file to be uploaded. 
+            mime_type: The Mime Type of the file, eg. image/jpeg
+            folder_id: The parent folder of the new file. Default is 'root'
+
+        Returns:
+            The ID of the new file.
+
+        Raises:
+            HttpError: An error occured in the request. 
+        """
+
         file_metadata = {
-            'name': file_name,
+            'name': name,
             'parents': [folder_id]
         }
 
@@ -59,11 +126,20 @@ class API:
         file = self.service.files().create(body=file_metadata,
                                            media_body=media,
                                            fields='id').execute()
-        print('File ID: %s' % file.get('id'))
+        return file.get('id')
 
-    def downloadFile(self, file_id):
-        file = self.service.files().get(fileId=file_id).execute()
-        request = self.service.files().get_media(fileId=file_id)
+    def downloadFile(self, file_id) -> None:
+        """Download a file from the drive. 
+        
+        Args:
+            file_id: The ID of the file to download. 
+            
+        Raises:
+            HttpError: An error occured in the request.
+        
+        """
+        file = self.service.files().get(file_id=file_id).execute()
+        request = self.service.files().get_media(file_id=file_id)
         fh = io.BytesIO()
         downloader = MediaIoBaseDownload(fh, request)
         done = False
@@ -75,15 +151,38 @@ class API:
         with open(file.get('name'), 'wb') as f:
             shutil.copyfileobj(fh, f, length=10000)
 
-    def moveFiles(self, file_id, folder_id):
-        file = self.service.files().get(fileId=file_id, fields='parents').execute()
+    def moveFiles(self, file_id, folder_id='root') -> None:
+        """Move a file in the drive by changing the parent.  
+        
+        Args:
+            file_id: The ID of the file to move. 
+            folder_id: The ID of the new parent folder. Default is root.
+            
+        """
+        file = self.service.files().get(file_id=file_id, fields='parents').execute()
         previous_parents = ",".join(file.get('parents'))
 
-        file = self.service.files().update(fileId=file_id, addParents=folder_id,
+        file = self.service.files().update(file_id=file_id, addParents=folder_id,
                                            removeParents=previous_parents, fields='id, parents').execute()
 
-    def addShortcut(self, file_id, folder_id='root'):
-        file = self.service.files().get(fileId=file_id).execute()
+    def addShortcut(self, file_id, folder_id=None):
+        """Create a shortcut to a file.
+        
+        Args:
+            file_id: The ID of the file to create a shortcut to.
+            folder_id: The ID of the shortcuts parent folder. If no folder_id is provided, the shortcut will have the same parent as the original file. 
+        
+        Returns:
+            The ID of the shortcut.
+            
+        Raises:
+            HttpError: An error occured in the request.
+        
+        """
+        file = self.service.files().get(file_id=file_id, fields="id, parents").execute()
+        if(folder_id == None):
+            folder_id = file.get('parents')[0]
+        
         shortcut_metadata = {
             'Name': 'Shortcut to %s' % file.get('name'),
             'mimeType': 'application/vnd.google-apps.shortcut',
@@ -93,11 +192,15 @@ class API:
             }
         }
         shortcut = self.service.files().create(body=shortcut_metadata,
-                                               fields='id,shortcutDetails').execute()
-        print('File ID: %s, Shortcut Target ID: %s, Shortcut Target MIME type: %s' % (
-            shortcut.get('id'),
-            shortcut.get('shortcutDetails').get('targetId'),
-            shortcut.get('shortcutDetails').get('targetMimeType')))
+                                               fields='id').execute()
+        return shortcut['id']
 
     def emptyTrash(self):
+        """Permanently deletes all items marked as trash.
+        
+        Raises:
+            HttpError: An error occured in the request.
+        
+        """
         self.service.files().emptyTrash().execute()
+

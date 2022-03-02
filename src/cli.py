@@ -75,80 +75,99 @@ def count(args):
 
 @subcommand([argument("term", help="Term to search by", action="store"),
              argument(
-                 "--trash", help="Include trashed files in the search", action="store_true"),
-             argument("--folderId", help="Specific folder id to search within", action="store")])
+                 "--trash", help="Search within the trash folder", action="store_true"),
+             argument("--folderId", help="Specific folder id to search within", action="store"),
+             argument("--match", help="Match the term completely", action="store_true")])
 def search(args):
     try:
+        print(f"Attempting search for files named: {args.term}...")
         api = api_interaction.API(drive_service)
-        results = api.searchFile(args.term, args.trash, args.folderId)
+        results = api.searchFile(args.term, args.trash, args.folderId, args.match)
         printResults(results)
     except HttpError as error:
         printHttpError(error)
 
 
 @subcommand([argument("name", help="Name of the new folder", action="store"),
-             argument("--parent", help="ID of the parent folder, default is root", action="store")])
-def createFolder(args):
+             argument("--folderId", help="ID of the parent folder, default is root", action="store")])
+def folder(args):
     try:
         api = api_interaction.API(drive_service)
-        api.createFolder(args.name, args.parent)
+        id = api.createFolder(args.name, args.folderId)
+        print(f"Folder ID: {id}")
     except HttpError as error:
         printHttpError(error)
 
 
 @subcommand([argument("name", help="The name given to the uploaded file", action="store"),
-             argument("filepath", help="Path to the source file",
+             argument("filePath", help="Path to the source file",
                       action="store"),
              argument(
                  "--mimetype", help="Force a file type such as 'image/jpeg'", action="store"),
-             argument("--folder", help="Folder ID to upload to, default root", action="store", default='root')])
+             argument("--folderId", help="Folder ID to upload to, default root", action="store", default='root')])
 def upload(args):
     try:
         if(args.mimetype == None):
             # Try and guess the extension
-            mime = mimetypes.guess_extension(args.filepath)
+            print("Attempting to guess the mimetype...")
+            mime = mimetypes.guess_extension(args.filePath)
             if(mime == None):
                 # If it cannot be guessed then raise error
                 raise MimeError
         else:
             mime = args.mimetype
         api = api_interaction.API(drive_service)
-        api.uploadFile(args.folder, args.name, args.filepath, mime)
+        print("Attempting upload...")
+        id = api.uploadFile(args.name, args.filePath, mime, args.folderId)
+        print(f"ID: {id}")
     except HttpError as error:
         printHttpError(error)
     except MimeError:
-        print("Could not detect the type extension, try manually forcing the extension with --mimetype")
+        print("Could not detect the mime type from the local file, try manually forcing the type, if known, with --mimetype")
 
 
-@subcommand([argument("--name", help="The name of the file to download. if multiple files of the same name exist, the first found will be downloaded", action="store"),
-             argument("--fileId", help="The id of the file to be downloaded.", action="store")])
+@subcommand([argument("fileId", help="The id of the file to be downloaded.", action="store")])
 def download(args):
     try:
         api = api_interaction.API(drive_service)
-        if(args.name == None and args.fileId == None):
-            raise ArgumentError
-        if(args.fileId != None):
-            # If an id is supplied, pritoritise using that over name
-            fileid = args.fileId
-        else:
-            # If no id is supplied, try searching for a name
-            items = api.searchFile(args.name)
-            if not items:
-                raise NotFoundError
-            else:
-                fileid = items[0]['id']
-        api.downloadFile(fileid)
+        print("Attempting download...")
+        api.downloadFile(args.fileId)
     except HttpError as error:
         printHttpError(error)
-    except NotFoundError:
-        print("Found no such file to download!")
-    except ArgumentError:
-        print("Either a name or file id must be given!")
 
-
+@subcommand([argument("fileId",help="ID of the file to move.", action="store"),
+             argument("folderId",help="ID of the folder to move the file to.", action="store")])
+def move(args):
+    try:
+        api = api_interaction.API(drive_service)
+        api.moveFiles(args.fileId, args.folderId)
+        print("File Moved.")
+    except HttpError as error:
+        printHttpError(error)
+    
+@subcommand([argument("fileId",help="The ID of the file to create a shortcut to", action="store"),
+             argument("--folderId",help="The ID of the shortcut's parent folder",action="store")])    
+def shortcut(args):
+    try:
+        api = api_interaction.API(drive_service)
+        id = api.addShortcut(args.fileId, args.folderId)
+        print(f"Shortcut ID: {id}")
+    except HttpError as error:
+        printHttpError(error)
+        
+@subcommand()
+def trash(args):
+    try:
+        api = api_interaction.API(drive_service)
+        api.emptyTrash()
+        print("Trash emptied.")
+    except HttpError as error:
+        printHttpError(error)
+        
 if __name__ == "__main__":
     args = cli.parse_args()
     if args.subcommand is None:
         cli.print_help()
     else:
         args.func(args)
+
