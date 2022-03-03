@@ -249,7 +249,7 @@ class API:
         with open(file.get('name'), 'wb') as f:
             shutil.copyfileobj(fh, f, length=10000)
 
-    def moveFiles(self, file_id, folder_id='root') -> None:
+    def moveFile(self, file_id, folder_id='root') -> None:
         """Move a file in the drive by changing the parent.  
 
         Args:
@@ -266,6 +266,32 @@ class API:
         file = self.service.files().update(fileId=file_id, addParents=folder_id,
                                            removeParents=previous_parents, fields='id, parents').execute()
 
+    def copyFile(self, file_id, folder_id=None, name=None):
+        """Copy a file.
+        
+        Copy a file with optional parameters to change the name and parent folder. Folders cannot be copied.
+        
+        Args:
+            file_id: The ID of the file being copied.
+            folder_id: The parent of the new copy.
+            name: The name of the new copy.
+        
+        Returns:
+            The ID of the new copy.
+            
+        Raises:
+            HttpError: An error occured in the request.
+        """
+        metadata ={}
+        if name != None:
+            metadata['name'] = name
+        if folder_id != None:
+            metadata['parents'] = [folder_id]
+        print(metadata)
+        file = self.service.files().copy(fileId=file_id,body=metadata).execute()
+        return file
+
+
     def addShortcut(self, file_id, folder_id=None):
         """Create a shortcut to a file.
 
@@ -278,14 +304,13 @@ class API:
 
         Raises:
             HttpError: An error occured in the request.
-
         """
-        file = self.service.files().get(file_id=file_id, fields="id, parents").execute()
+        file = self.service.files().get(fileId=file_id, fields="name, id, parents").execute()
         if(folder_id == None):
             folder_id = file.get('parents')[0]
 
         shortcut_metadata = {
-            'Name': 'Shortcut to %s' % file.get('name'),
+            'name': 'Shortcut to %s' % file.get('name'),
             'mimeType': 'application/vnd.google-apps.shortcut',
             'parents': [folder_id],
             'shortcutDetails': {

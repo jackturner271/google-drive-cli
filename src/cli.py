@@ -206,11 +206,24 @@ def move(args):
     """Move a file into another folder."""
     try:
         api = API(drive_service)
-        api.moveFiles(args.fileId, args.folderId)
+        api.moveFile(args.fileId, args.folderId)
         print("File Moved Successfully.")
     except HttpError as error:
         printHttpError(error)
     
+@subcommand([argument("fileId",help="ID of the file to copy.", action="store"),
+             argument("--folderId",help="ID of the folder to move the copy to.", action="store"),
+             argument("--name", help="The name for the new copy", action="store")])
+def copy(args):
+    """Copy a file."""
+    try:
+        api = API(drive_service)
+        file = api.copyFile(args.fileId, args.folderId, args.name)
+        print(f"Copy ID: {file['id']}")
+    except HttpError as error:
+        printHttpError(error)
+    
+
 @subcommand([argument("fileId",help="The ID of the file to create a shortcut to", action="store"),
              argument("--folderId",help="The ID of the shortcut's parent folder",action="store")])    
 def shortcut(args):
