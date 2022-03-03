@@ -2,7 +2,7 @@
 
 from argparse import ArgumentParser
 import mimetypes
-from errors import printHttpError, ArgumentError, MimeError, NotFoundError
+from errors import printHttpError, NotFolderError
 from re import sub
 import google_auth
 from api import API
@@ -61,6 +61,20 @@ def get(args):
             print(f"ID: {file['id']}")
             print(f"Mime: {file['mimeType']}")
             print(f"Trashed: {file['trashed']}")
+            if file['parents'] != None:
+                parent = api.getParent(file['parents'][0]) 
+                print(f"Parent: '{parent['name']}' ({parent['id']})")
+    except HttpError as error:
+        printHttpError(error)
+    except NotFolderError:
+        print("The parent of this file isn't a folder...")
+
+
+@subcommand([argument("fileId", help="The ID of the file", action="store")])
+def permissions(args):
+    try:
+        api = API(drive_service)
+        print(api.getFilePermissions(args.fileId))
     except HttpError as error:
         printHttpError(error)
 
@@ -142,9 +156,7 @@ def upload(args):
         print(f"ID: {id}")
     except HttpError as error:
         printHttpError(error)
-    except MimeError:
-        print("Could not detect the mime type from the local file, try manually forcing the type, if known, with --mimetype")
-
+    
 @subcommand([argument("fileId", help="The ID of the file to update", action="store"),
              argument("name", help="The name given to the uploaded file", action="store"),
              argument("filePath", help="Path to the source file",

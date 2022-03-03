@@ -4,7 +4,7 @@ import io
 import shutil
 
 from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
-
+from errors import NotFolderError
 
 class API:
 
@@ -25,6 +25,42 @@ class API:
         """
         file = self.service.files().get(fileId=file_id, fields="*").execute()
         return file
+    
+    def getFilePermissions(self, file_id):
+        """Get the permissions of a file.
+
+        Args:
+            file_id: The ID of the file.
+
+        Returns:
+            The permissions metadata.
+
+        Raises:
+            HttpError: An error occured in the request.
+        """
+        permissions = self.service.permissions().list(fileId=file_id).execute()
+        return permissions
+    
+    def getParent(self, folder_id):
+        """Get folder information.
+        
+        This is intended for use in getting information from a known file's parent. 
+        
+        Args:
+            folder_id: The ID of the folder to search for.
+            
+        Returns:
+            Folder metadata.
+            
+        Raises:
+            HttpError: An error occured in the request.
+            NotFolderError: The found file is not a folder. 
+        """
+        folder = self.service.files().get(fileId=folder_id).execute()
+        if folder['mimeType'] != 'application/vnd.google-apps.folder':
+            raise NotFolderError
+        else:
+            return folder
 
     def listFiles(self, trash=False, excludeFolders=False, folder_id='root') -> list:
         """List all files in a folder
