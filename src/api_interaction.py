@@ -11,6 +11,21 @@ class API:
     def __init__(self, service):
         self.service = service
 
+    def getFile(self, file_id):
+        """Get the metadata of a file.
+
+        Args:
+            file_id: The ID of the file.
+
+        Returns:
+            The file metadata.
+
+        Raises:
+            HttpError: An error occured in the request.
+        """
+        file = self.service.files().get(fileId=file_id, fields="*").execute()
+        return file
+
     def listFiles(self, trash=False, excludeFolders=False, folder_id='root') -> list:
         """List all files in a folder
 
@@ -129,16 +144,28 @@ class API:
         return file.get('id')
 
     def updateFile(self, file_id, name, file_path, mime_type):
+        """Update an existing file in the drive with new content
+
+        Args:
+            file_id: The ID of file to update. 
+            name: The new name of the file.
+            file_path: Path to the file contents to upload.
+            mime_type: 
+
+        Raises:
+            HttpError: An error occured in the request.
+        """
         file = self.service.files().get(fileId=file_id).execute()
-        
+
         del file['id']
         file['name'] = name
         file['mimeType'] = mime_type
-        
+
         media = MediaFileUpload(file_path, mimetype=mime_type, resumable=True)
-        
-        updated = self.service.files().update(fileId=file_id, body=file, media_body=media).execute()
-        
+
+        updated = self.service.files().update(
+            fileId=file_id, body=file, media_body=media).execute()
+
         return updated.get('id')
 
     def downloadFile(self, file_id) -> None:
@@ -149,7 +176,6 @@ class API:
 
         Raises:
             HttpError: An error occured in the request.
-
         """
         file = self.service.files().get(fileId=file_id).execute()
         request = self.service.files().get_media(fileId=file_id)
@@ -166,15 +192,16 @@ class API:
 
     def exportFile(self, file_id):
         """Export a Google Workspace document and download it.
-        
+
         Args:
             file_id: The ID of the file to download.
-            
+
         Raises:
             HttpError: An error occured in the request.    
         """
         file = self.service.files().get(fileId=file_id).execute()
-        request = self.service.files().export_media(fileId=file_id, mimeType='application/pdf')
+        request = self.service.files().export_media(
+            fileId=file_id, mimeType='application/pdf')
         fh = io.BytesIO()
         downloader = MediaIoBaseDownload(fh, request)
         done = False
@@ -192,7 +219,7 @@ class API:
         Args:
             file_id: The ID of the file to move. 
             folder_id: The ID of the new parent folder. Default is root.
-            
+
         Raises:
             HttpError: An error occured in the request.
 
@@ -244,11 +271,11 @@ class API:
 
     def lockFile(self, file_id, reason="No reason given"):
         """Lock a file and make it read-only.
-        
+
         Args:
             file_id: The ID of the file to lock.
             reason: An optional reason as to why the file is being locked. 
-            
+
         Raises:
             HttpError: An error occured in the request.
         """
@@ -257,35 +284,36 @@ class API:
 
     def unlockFile(self, file_id):
         """Unlock a file.
-        
+
         Args:
             file_id: The ID of the file to unlock.
-            
+
         Raises:
             HttpError: An error occured in the request.
         """
         self.service.files().update(fileId=file_id, body={"contentRestrictions":
                                                           [{"readOnly": "false"}]}).execute()
-    
+
     def trashFile(self, file_id):
         """Mark a file as trash.
-        
+
         Args:
             file_id: The ID of the file to trash.
-            
+
         Raises:
             HttpError: An error occured in the request.
         """
-        self.service.files().update(fileId=file_id, body={"trashed": "true"}).execute()
-        
+        self.service.files().update(fileId=file_id, body={
+            "trashed": "true"}).execute()
+
     def restoreFile(self, file_id):
         """Restore a file from the trash.
-        
+
         Args:
             file_id: The ID of the file to restore.
-            
+
         Raises:
             HttpError: An error occured in the request.
         """
-        self.service.files().update(fileId=file_id, body={"trashed": "false"}).execute()
-    
+        self.service.files().update(fileId=file_id, body={
+            "trashed": "false"}).execute()

@@ -27,13 +27,13 @@ def printResults(items):
         print('No files found.')
         return
     for item in items:
-        printItem(item)    
+        printItem(item)
+        print("-------------------------------")    
         
 def printItem(item):
     print(f"Name: {item['name']}")
     print(f"ID: {item['id']}")
     print(f"Parents: {item['parents']}")
-    print("-------------------------------")
 
 def subcommand(args=[], parent=subparsers):
     def decorator(func):
@@ -47,6 +47,21 @@ def subcommand(args=[], parent=subparsers):
 def argument(*name_or_flags, **kwargs):
     return ([*name_or_flags], kwargs)
 
+@subcommand([argument("fileId", help="The ID of the file", action="store"),
+             argument("--raw", help="Flag to print the raw data.", action="store_true")])
+def get(args):
+    try:
+        api = api_interaction.API(drive_service)
+        file = api.getFile(args.fileId)
+        if args.raw:
+            print(file)
+        else:
+            print(f"Name: {file['name']}")
+            print(f"ID: {file['id']}")
+            print(f"Mime: {file['mimeType']}")
+            print(f"Trashed: {file['trashed']}")
+    except HttpError as error:
+        printHttpError(error)
 
 @subcommand([argument("--excludeFolders", help="Excludes folders from the list", action="store_true"),
              argument("--trash", help="List all files in the trash", action="store_true"),
