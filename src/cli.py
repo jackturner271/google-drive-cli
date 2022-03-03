@@ -164,7 +164,7 @@ def upload(args):
              argument(
                  "--mimetype", help="Force a file type such as 'image/jpeg'", action="store")])
 def update(args):
-    """Update an existing file,"""
+    """Update an existing file."""
     try:
         if(args.mimetype == None):
             mimemagic = magic.Magic(mime=True)
