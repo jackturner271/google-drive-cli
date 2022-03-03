@@ -128,6 +128,19 @@ class API:
                                            fields='id').execute()
         return file.get('id')
 
+    def updateFile(self, file_id, name, file_path, mime_type):
+        file = self.service.files().get(fileId=file_id).execute()
+        
+        del file['id']
+        file['name'] = name
+        file['mimeType'] = mime_type
+        
+        media = MediaFileUpload(file_path, mimetype=mime_type, resumable=True)
+        
+        updated = self.service.files().update(fileId=file_id, body=file, media_body=media).execute()
+        
+        return updated.get('id')
+
     def downloadFile(self, file_id) -> None:
         """Download a file from the drive. 
 
@@ -179,6 +192,9 @@ class API:
         Args:
             file_id: The ID of the file to move. 
             folder_id: The ID of the new parent folder. Default is root.
+            
+        Raises:
+            HttpError: An error occured in the request.
 
         """
         file = self.service.files().get(fileId=file_id, fields='parents').execute()
@@ -250,4 +266,26 @@ class API:
         """
         self.service.files().update(fileId=file_id, body={"contentRestrictions":
                                                           [{"readOnly": "false"}]}).execute()
+    
+    def trashFile(self, file_id):
+        """Mark a file as trash.
+        
+        Args:
+            file_id: The ID of the file to trash.
+            
+        Raises:
+            HttpError: An error occured in the request.
+        """
+        self.service.files().update(fileId=file_id, body={"trashed": "true"}).execute()
+        
+    def restoreFile(self, file_id):
+        """Restore a file from the trash.
+        
+        Args:
+            file_id: The ID of the file to restore.
+            
+        Raises:
+            HttpError: An error occured in the request.
+        """
+        self.service.files().update(fileId=file_id, body={"trashed": "false"}).execute()
     

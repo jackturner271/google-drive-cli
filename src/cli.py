@@ -124,6 +124,25 @@ def upload(args):
     except MimeError:
         print("Could not detect the mime type from the local file, try manually forcing the type, if known, with --mimetype")
 
+@subcommand([argument("fileId", help="The ID of the file to update", action="store"),
+             argument("name", help="The name given to the uploaded file", action="store"),
+             argument("filePath", help="Path to the source file",
+                      action="store"),
+             argument(
+                 "--mimetype", help="Force a file type such as 'image/jpeg'", action="store")])
+def update(args):
+    try:
+        if(args.mimetype == None):
+            mimemagic = magic.Magic(mime=True)
+            mime = mimemagic.from_file(args.filePath) #Get the files mimetype
+        else:
+            mime = args.mimetype
+        api = api_interaction.API(drive_service)
+        id = api.updateFile(args.fileId, args.name, args.filePath, mime)
+        print(f"Updated file {id} Successfully.")
+    except HttpError as error:
+        printHttpError(error)
+
 
 @subcommand([argument("fileId", help="The id of the file to be downloaded.", action="store")])
 def download(args):
@@ -131,6 +150,7 @@ def download(args):
         api = api_interaction.API(drive_service)
         print("Attempting download...")
         api.downloadFile(args.fileId)
+        print("File Downloaded Successfully.")
     except HttpError as error:
         printHttpError(error)
         
@@ -140,6 +160,7 @@ def export(args):
         api = api_interaction.API(drive_service)
         print("Attempting export and download...")
         api.exportFile(args.fileId)
+        print("File Exported Successfully.")
     except HttpError as error:
         printHttpError(error)
 
@@ -149,7 +170,7 @@ def move(args):
     try:
         api = api_interaction.API(drive_service)
         api.moveFiles(args.fileId, args.folderId)
-        print("File Moved.")
+        print("File Moved Successfully.")
     except HttpError as error:
         printHttpError(error)
     
@@ -164,7 +185,7 @@ def shortcut(args):
         printHttpError(error)
         
 @subcommand()
-def trash(args):
+def empty_trash(args):
     try:
         api = api_interaction.API(drive_service)
         api.emptyTrash()
@@ -175,7 +196,7 @@ def trash(args):
 @subcommand([argument("folderPath", help="The folder to upload", action="store"),
              argument("--folderId",help="The parent folder ID to store the uploaded files/folders", action="store", default="root"),
              argument("--depth", help="Maximum depth to traverse", action="store", type=int)])
-def uploadfolder(args):
+def upload_folder(args):
     def traverse(api, path, root, depth, maxdepth):
         print(f"Creating {path} folder...")
         id = api.createFolder(basename(normpath(path)), root)
@@ -198,6 +219,7 @@ def uploadfolder(args):
     try:
         api = api_interaction.API(drive_service)
         traverse(api, args.folderPath, args.folderId, 0, args.depth)
+        print("Finished Uploading Folder")
     except HttpError as error:
         printHttpError(error)
     
@@ -207,6 +229,7 @@ def lock(args):
         api = api_interaction.API(drive_service)
         print("Attempting to lock file...")
         api.lockFile(args.fileId)
+        print("File Locked Successfully.")
     except HttpError as error:
         printHttpError(error)
         
@@ -216,10 +239,30 @@ def unlock(args):
         api = api_interaction.API(drive_service)
         print("Attempting to unlock file...")
         api.unlockFile(args.fileId)
+        print("File Unlocked Successfully.")
     except HttpError as error:
         printHttpError(error)
 
-    
+@subcommand([argument("fileId", help="File ID to trash",action="store")])
+def trash(args):
+    try:
+        api = api_interaction.API(drive_service)
+        print("Attempting to mark file as trash...")
+        api.trashFile(args.fileId)
+        print("File Trashed Successfully.")
+    except HttpError as error:
+        printHttpError(error)
+
+@subcommand([argument("fileId", help="File ID to trash",action="store")])
+def restore(args):
+    try:
+        api = api_interaction.API(drive_service)
+        print("Attempting to restore a file...")
+        api.untrashFile(args.fileId)
+        print("File Restored Successfully.")
+    except HttpError as error:
+        printHttpError(error)
+
 if __name__ == "__main__":
     args = cli.parse_args()
     if args.subcommand is None:
