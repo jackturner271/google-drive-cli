@@ -6,6 +6,7 @@ from google.oauth2.credentials import Credentials
 
 
 class Auth:
+    """auth is courtesy of the google api client quickstart"""
 
     def __init__(self, client_secret_filename, scopes):
         self.client_secret = client_secret_filename
